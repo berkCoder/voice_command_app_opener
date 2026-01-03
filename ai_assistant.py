@@ -244,10 +244,10 @@ def handle_command(
     command: str,
     aliases: dict[str, dict[str, str]],
 ) -> bool:
-    cleaned = command.strip().lower()
-    if cleaned in {"stop", "exit", "quit", "stop listening", "close", "shut down"}:
-        speak(engine, "Stopping now.")
+    if is_stop_command(command):
+        speak(engine, "Okay, shutting down.")
         return False
+    cleaned = command.strip().lower()
     if cleaned in {"nevermind", "never mind", "cancel"}:
         speak(engine, "Okay.")
         return True
@@ -289,6 +289,26 @@ def normalize_text(text: str) -> str:
     return re.sub(r"[^a-z0-9\s]", "", text.lower()).strip()
 
 
+def is_stop_command(text: str) -> bool:
+    normalized = normalize_text(text)
+    if normalized in {"stop", "exit", "quit", "close", "shutdown", "shut down", "stop listening"}:
+        return True
+    return any(
+        phrase in normalized
+        for phrase in (
+            "stop",
+            "close",
+            "exit",
+            "quit",
+            "stop listening",
+            "shut down",
+            "shutdown",
+            "close program",
+            "stop program",
+        )
+    )
+
+
 def configure_voice(engine: pyttsx3.Engine) -> None:
     voices = engine.getProperty("voices")
     engine.setProperty("volume", 1.0)
@@ -318,6 +338,9 @@ def main() -> None:
         if not text:
             continue
         print(f"Heard (wake): {text}")
+        if is_stop_command(text):
+            speak(engine, "Okay, shutting down.")
+            break
         normalized = normalize_text(text)
         if any(wake in normalized for wake in WAKE_WORDS):
             speak(engine, PROMPT_TEXT)
@@ -334,7 +357,7 @@ def main() -> None:
                 if cleaned in {"nevermind", "never mind", "cancel"}:
                     speak(engine, "Okay.")
                     break
-                if cleaned in {"stop", "exit", "quit", "stop listening", "close", "shut down"}:
+                if is_stop_command(command):
                     should_continue = handle_command(engine, recognizer, microphone, command, aliases)
                     if not should_continue:
                         return
